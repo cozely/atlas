@@ -4,6 +4,8 @@
 package atlas
 
 import (
+	"fmt"
+	"image"
 	"sort"
 )
 
@@ -16,101 +18,106 @@ Bin Packing and Assignment Problems":
 
 TODO:
 
-- add a Flip method to Image, to be able to make all images horizontal
+- add flipped items, to be able to make all items horizontal
 - find a way to compute the "touching perimeter" score
 - pre-allocate the bins
 */
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// An Atlas contains the mapping information to pack a set of images into an
-// array of bigger textures (called bins).
+// An Atlas contains the mapping information to pack a set of images (called
+// items) into an array of bigger images (called bins).
 type Atlas struct {
-	width, height int16
-	bins          []region
-	ideal         int
+	size  image.Point
+	trees []region
+	ideal int
 }
 
-type (
-	SizeFn  func(rect uint32) (int16, int16)
-	PutFn   func(rect uint32, bin int16, x, y int16)
-	PaintFn func(rect uint32, dest interface{}) error
-)
+// A Mapping is the location of an item inside an atlas.
+type Mapping struct {
+	Bin    int
+	Bounds image.Rectangle
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// New returns a new (empty) Atlas. The width and height describe the shape of
-// the bins.
-func New(width, height int16) *Atlas {
+// New returns a new atlas.
+func New(size image.Point) *Atlas {
 	return &Atlas{
-		width:  width,
-		height: height,
-		bins:   []region{},
+		size: size,
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// BinSize returns the width and height of the bins managed by the atlas.
-func (a *Atlas) BinSize() (width, height int16) {
-	return a.width, a.height
-}
-
 // BinCount returns the number of bins currently in the atlas.
 func (a *Atlas) BinCount() int16 {
-	return int16(len(a.bins))
+	return int16(len(a.trees))
 }
 
 // Unused returns the number of unused pixels (i.e. not allocated to any image)
 // in the atlas.
 func (a *Atlas) Unused() int {
-	return len(a.bins)*int(a.width)*int(a.height) - a.ideal
+	return len(a.trees)*a.size.X*a.size.Y - a.ideal
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// Pack fits all the rectangles in the atlas. New bins are added when needed. It
-// calls the Put method of each image with the corresponding mapping
-// information.
-func (a *Atlas) Pack(rectangles []uint32, size SizeFn, put PutFn) {
-	sort.Slice(rectangles, func(i, j int) bool {
-		wi, hi := size(rectangles[i])
-		wj, hj := size(rectangles[j])
-		return wi*2+hi*2 > wj*2+hj*2
+// Pack fits all the items into the atlas.
+func (a *Atlas) Pack(items []image.Image) ([]Mapping, error) {
+	indices := make([]int, len(items), len(items))
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.Slice(indices, func(i, j int) bool {
+		si := items[indices[i]].Bounds().Size()
+		sj := items[indices[j]].Bounds().Size()
+		return si.X*2+si.Y*2 > sj.X*2+sj.Y*2
 	})
 
-	for i := range rectangles {
-		w, h := size(rectangles[i])
-		a.ideal += int(w) * int(h)
-		done := false
-		for j := range a.bins {
-			n := a.bins[j].insert(rectangles[i], int16(j), size, put)
-			if n != nil {
-				done = true
+	mappings := make([]Mapping, 0, len(items))
+	for i := range indices {
+		s := items[indices[i]].Bounds().Size()
+		a.ideal += s.X * s.Y
+		var reg *region
+		for j := range a.trees {
+			reg = a.trees[j].insert(items, indices[i])
+			if reg != nil {
+				mappings = append(mappings, Mapping{
+					Bin:    j,
+					Bounds: reg.bounds,
+				})
 				break
 			}
 		}
-		if !done {
-			a.bins = append(
-				a.bins,
-				region{w: a.width, h: a.height, rect: norect},
+		if reg == nil {
+			a.trees = append(
+				a.trees,
+				region{
+					bounds:  image.Rectangle{Max: a.size},
+					content: nothing,
+				},
 			)
-			n := a.bins[len(a.bins)-1].insert(rectangles[i], int16(len(a.bins)-1), size, put)
-			if n != nil {
-
+			reg = a.trees[len(a.trees)-1].insert(items, indices[i])
+			if reg != nil {
+				mappings = append(mappings, Mapping{
+					Bin:    len(a.trees) - 1,
+					Bounds: reg.bounds,
+				})
 			} else {
-				print("!") //TODO:
+				return mappings, fmt.Errorf(
+					"atlas.Atlas.Pack: unable to fit item %d",
+					indices[i],
+				)
 			}
 		}
 	}
-}
 
-////////////////////////////////////////////////////////////////////////////////
+	sort.Slice(mappings, func(i, j int) bool {
+		return mappings[i].Bin < mappings[j].Bin
+	})
 
-// Paint iterates on all images mapped to the specified bin, and call their own
-// Paint method.
-func (a *Atlas) Paint(bin int16, dest interface{}, paint PaintFn) error {
-	return a.bins[bin].paint(bin, dest, paint)
+	return mappings, nil
 }
 
 ////////////////////////////////////////////////////////////////////////////////
