@@ -50,9 +50,14 @@ func New(size image.Point) *Atlas {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Size returns the size of the bins in the atlas.
+func (a *Atlas) Size() image.Point {
+	return a.size
+}
+
 // BinCount returns the number of bins currently in the atlas.
-func (a *Atlas) BinCount() int16 {
-	return int16(len(a.trees))
+func (a *Atlas) BinCount() int {
+	return len(a.trees)
 }
 
 // Unused returns the number of unused pixels (i.e. not allocated to any image)
@@ -75,7 +80,7 @@ func (a *Atlas) Pack(items []image.Image) ([]Mapping, error) {
 		return si.X*2+si.Y*2 > sj.X*2+sj.Y*2
 	})
 
-	mappings := make([]Mapping, 0, len(items))
+	mappings := make([]Mapping, len(items), len(items))
 	for i := range indices {
 		s := items[indices[i]].Bounds().Size()
 		a.ideal += s.X * s.Y
@@ -83,10 +88,10 @@ func (a *Atlas) Pack(items []image.Image) ([]Mapping, error) {
 		for j := range a.trees {
 			reg = a.trees[j].insert(items, indices[i])
 			if reg != nil {
-				mappings = append(mappings, Mapping{
+				mappings[indices[i]] = Mapping{
 					Bin:    j,
 					Bounds: reg.bounds,
-				})
+				}
 				break
 			}
 		}
@@ -100,10 +105,10 @@ func (a *Atlas) Pack(items []image.Image) ([]Mapping, error) {
 			)
 			reg = a.trees[len(a.trees)-1].insert(items, indices[i])
 			if reg != nil {
-				mappings = append(mappings, Mapping{
+				mappings[indices[i]] = Mapping{
 					Bin:    len(a.trees) - 1,
 					Bounds: reg.bounds,
-				})
+				}
 			} else {
 				return mappings, fmt.Errorf(
 					"atlas.Atlas.Pack: unable to fit item %d",
@@ -112,10 +117,6 @@ func (a *Atlas) Pack(items []image.Image) ([]Mapping, error) {
 			}
 		}
 	}
-
-	sort.Slice(mappings, func(i, j int) bool {
-		return mappings[i].Bin < mappings[j].Bin
-	})
 
 	return mappings, nil
 }
