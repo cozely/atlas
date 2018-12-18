@@ -88,7 +88,7 @@ func (n *region) insert(items []image.Image, index int) *region {
 
 		n.second.bounds = image.Rectangle {
 			Min: image.Pt(n.bounds.Min.X+s.X, n.bounds.Min.Y),
-			Max: image.Pt(n.bounds.Max.X, n.bounds.Max.X),
+			Max: image.Pt(n.bounds.Max.X, n.bounds.Max.Y),
 		}
 		// n.second.x, n.second.y = n.x+w, n.y
 		// n.second.w, n.second.h = n.w-w, n.h
@@ -103,7 +103,7 @@ func (n *region) insert(items []image.Image, index int) *region {
 
 		n.second.bounds = image.Rectangle {
 			Min: image.Pt(n.bounds.Min.X, n.bounds.Min.Y+s.Y),
-			Max: image.Pt(n.bounds.Max.X, n.bounds.Max.X),
+			Max: image.Pt(n.bounds.Max.X, n.bounds.Max.Y),
 		}
 		// n.second.x, n.second.y = n.x, n.y+h
 		// n.second.w, n.second.h = n.w, n.h-h

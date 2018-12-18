@@ -80,10 +80,10 @@ func Test3(t *testing.T) {
 	}
 
 	out := []atlas.Mapping{
-		{Bin:0, Bounds:image.Rect(4, 3, 5, 4)},
-		{Bin:0, Bounds:image.Rect(0, 1, 2, 2)},
-		{Bin:0, Bounds:image.Rect(4, 0, 5, 3)},
-		{Bin:0, Bounds:image.Rect(0, 0, 4, 1)},
+		atlas.Mapping{Bin:0, Bounds:image.Rectangle{Min:image.Point{X:4, Y:0}, Max:image.Point{X:5, Y:1}}},
+		atlas.Mapping{Bin:0, Bounds:image.Rectangle{Min:image.Point{X:1, Y:1}, Max:image.Point{X:3, Y:2}}},
+		atlas.Mapping{Bin:0, Bounds:image.Rectangle{Min:image.Point{X:0, Y:1}, Max:image.Point{X:1, Y:4}}},
+		atlas.Mapping{Bin:0, Bounds:image.Rectangle{Min:image.Point{X:0, Y:0}, Max:image.Point{X:4, Y:1}}},
 	}
 
 	for i := range items {
